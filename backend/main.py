@@ -4,6 +4,7 @@ import asyncpg
 from fastapi import FastAPI
 from pydantic import BaseModel
 import spacy
+from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------------------------------------
 # DIRECT DATABASE CREDENTIALS (TESTING MODE)
@@ -41,6 +42,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add CORS middleware to app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---------------------------------------------------------
 # REQUEST SCHEMAS
