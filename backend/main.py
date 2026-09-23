@@ -2,71 +2,70 @@ import re
 from contextlib import asynccontextmanager
 import asyncpg
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import spacy
-from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------------------------------------
-# DIRECT DATABASE CREDENTIALS (TESTING MODE)
+# DATABASE CONFIGURATION
 # ---------------------------------------------------------
 DB_CONFIG = {
-    "user": "postgres",  # Your PostgreSQL username
-    "password": "tetsuyavirtus",  # Replace with your actual Postgres password
-    "database": "property_db",  # Your local database name
+    "user": "postgres",
+    "password": "tetsuyavirtus",
+    "database": "property_db",
     "host": "localhost",
     "port": 5432,
 }
 
-# Global database pool and spaCy NLP instance
 db_pool: asyncpg.Pool = None
 nlp = spacy.load("en_core_web_sm")
 
 
-# ---------------------------------------------------------
-# APPLICATION LIFECYCLE (DATABASE CONNECTION)
-# ---------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global db_pool
-    # Initialize connection pool to PostgreSQL
     db_pool = await asyncpg.create_pool(**DB_CONFIG)
     yield
-    # Close pool when server stops
     await db_pool.close()
 
 
 app = FastAPI(
     title="Property Recommendation Assistant",
-    description="FastAPI service with PostgreSQL and spaCy for intelligent property recommendations.",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# Add CORS middleware to app
+# Enable CORS for React Frontend (running on port 5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------
-# REQUEST SCHEMAS
-# ---------------------------------------------------------
+
 class UserPrompt(BaseModel):
     message: str
 
 
 # ---------------------------------------------------------
-# HELPER FUNCTIONS (NLP & PARSING)
+# HELPER FUNCTIONS (TEXT NORMALIZATION & NLP)
 # ---------------------------------------------------------
+def normalize_input(text: str) -> str:
+    """
+    Inserts spaces between numbers and attached words.
+    Example: '8Million' -> '8 Million', '500thousand' -> '500 thousand'
+    """
+    return re.sub(r"(\d+)\s*([a-zA-Z]+)", r"\1 \2", text, flags=re.IGNORECASE)
+
+
 def has_gibberish_or_nonsense(doc: spacy.tokens.Doc) -> bool:
-    """Detects nonsense character sequences, keyboard walks, or invalid word structures."""
+    """Detects nonsense character sequences or invalid word structures."""
     vowels = set("aeiouyAEIOUY")
 
     for token in doc:
-        # Check non-alphabetic tokens for mixed gibberish (e.g., 'qwwerty123asdfasdf')
+        # Check tokens for mixed alphanumeric gibberish (e.g., 'qwwerty123asdf')
         if not token.is_alpha:
             if re.search(r"[a-zA-Z]{4,}\d+|\d+[a-zA-Z]{4,}", token.text):
                 return True
@@ -84,7 +83,7 @@ def has_gibberish_or_nonsense(doc: spacy.tokens.Doc) -> bool:
         ):
             return True
 
-        # 3. Three or more consecutive identical characters (e.g., 'qwwerty', 'hhhhh')
+        # 3. Three or more consecutive identical characters
         if re.search(r"(.)\1{2,}", text):
             return True
 
@@ -92,16 +91,29 @@ def has_gibberish_or_nonsense(doc: spacy.tokens.Doc) -> bool:
 
 
 def parse_budget(text: str) -> float | None:
-    """Parses numeric budget patterns like 5M, 5.5 million, 500k, 5000000 from prompt."""
+    """
+    Parses numeric budget patterns including full words and shortcuts:
+    - Billions: 1.5B, 2 Billion, 2 Billions
+    - Millions: 8M, 8Million, 8 Millions, 8.5 million
+    - Thousands: 500K, 500Thousand, 500 Thousands
+    - Raw numbers: 5000000, 8,000,000
+    """
     text_clean = text.lower().replace(",", "")
 
-    # Match millions (e.g., 5m, 20m, 5.5 million)
-    match_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|million)", text_clean)
+    # Match Billions (e.g., 1b, 2 billion, 2 billions)
+    match_b = re.search(r"(\d+(?:\.\d+)?)\s*(?:b|billion|billions)", text_clean)
+    if match_b:
+        return float(match_b.group(1)) * 1_000_000_000
+
+    # Match Millions (e.g., 8m, 8million, 8 millions)
+    match_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|million|millions)", text_clean)
     if match_m:
         return float(match_m.group(1)) * 1_000_000
 
-    # Match thousands (e.g., 500k, 50 thousand)
-    match_k = re.search(r"(\d+(?:\.\d+)?)\s*(?:k|thousand)", text_clean)
+    # Match Thousands (e.g., 500k, 500thousand, 500 thousands)
+    match_k = re.search(
+        r"(\d+(?:\.\d+)?)\s*(?:k|thousand|thousands)", text_clean
+    )
     if match_k:
         return float(match_k.group(1)) * 1_000
 
@@ -114,7 +126,7 @@ def parse_budget(text: str) -> float | None:
 
 
 def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
-    """Extracts budget, category, location entities, and workplace proximity intent."""
+    """Extracts budget, category, locations, subdivision preference, and office proximity intent."""
     budget = parse_budget(text)
     text_lower = text.lower()
 
@@ -124,13 +136,11 @@ def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
     elif any(k in text_lower for k in ["condo", "apartment"]):
         category = "condo"
 
-    # Detect if user asks for proximity to office / work
     wants_near_office = any(
         k in text_lower
         for k in ["office", "work", "job site", "workplace", "site"]
     )
 
-    # Named Entity Recognition (NER) for location entities
     locations = [
         ent.text
         for ent in doc.ents
@@ -154,7 +164,6 @@ def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
 async def chat_assistant(prompt: UserPrompt):
     raw_message = prompt.message.strip()
 
-    # 1. Reject empty or extremely short inputs
     if len(raw_message) < 3:
         return {
             "status": "rejected",
@@ -162,9 +171,11 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    doc = nlp(raw_message)
+    # Normalize input BEFORE spaCy processing (e.g., '8Million' -> '8 Million')
+    normalized_message = normalize_input(raw_message)
+    doc = nlp(normalized_message)
 
-    # 2. Reject prompts containing gibberish / nonsense
+    # Reject prompts containing real gibberish/nonsense
     if has_gibberish_or_nonsense(doc):
         return {
             "status": "rejected",
@@ -172,17 +183,17 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    preferences = extract_preferences(raw_message, doc)
+    preferences = extract_preferences(normalized_message, doc)
 
-    # 3. Casual conversation response (when no budget or category is present)
+    # Casual conversation response
     if not preferences["budget"] and not preferences["category"]:
         return {
             "status": "casual_chat",
-            "reply": "Hello! I am your real estate assistant. Please provide your target budget, preferred location, or property type (e.g., 'I have 5M budget for a house in a subdivision').",
+            "reply": "Hello! I am your real estate assistant. Please provide your target budget, preferred location, or property type (e.g., 'I have 5 Million budget for a house in a subdivision').",
             "recommendations": [],
         }
 
-    # 4. Query PostgreSQL database based on preferences
+    # Query PostgreSQL
     query = """
         SELECT 
             listing_id, title, category, price_total, monthly_rate, 
@@ -205,14 +216,13 @@ async def chat_assistant(prompt: UserPrompt):
         param_idx += 1
 
     if preferences["has_subdivision"]:
-        query += f" AND (LOWER(village_name) LIKE '%subdivision%' OR LOWER(village_name) LIKE '%village%')"
+        query += " AND (LOWER(village_name) LIKE '%subdivision%' OR LOWER(village_name) LIKE '%village%')"
 
     query += " ORDER BY price_total DESC LIMIT 3;"
 
     async with db_pool.acquire() as connection:
         rows = await connection.fetch(query, *params)
 
-    # Format numeric database types for clean JSON response
     results = []
     for row in rows:
         item = dict(row)
@@ -238,7 +248,6 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    # 5. Handle incomplete/broad requests (e.g., asking for near office without specifying office location)
     if preferences["wants_near_office"] and not preferences["locations"]:
         return {
             "status": "clarification_needed",
@@ -247,7 +256,6 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": results,
         }
 
-    # 6. Standard successful recommendation response
     top_match = results[0]
     return {
         "status": "recommendation_found",
