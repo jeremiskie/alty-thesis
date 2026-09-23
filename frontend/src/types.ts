@@ -10,6 +10,7 @@ export interface Property {
   lat: number | null;
   lng: number | null;
   photos?: string[];
+  amenity_list?: string | Record<string, boolean>;
   details?: string;
 }
 

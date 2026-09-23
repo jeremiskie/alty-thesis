@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Building, Bed, Bath, AlertCircle, MapPin } from 'lucide-react';
+import { Send, Building, Bed, Bath, AlertCircle, MapPin, Eye } from 'lucide-react';
 import { PropertyMap } from './components/MapContainer';
+import { PropertyDetailModal } from './components/PropertyDetailModal';
 import type { ChatMessage, Property } from './types';
 
 export default function App() {
@@ -15,6 +16,9 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeProperties, setActiveProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  
+  // State for property full details preview modal
+  const [previewProperty, setPreviewProperty] = useState<Property | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +80,12 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
+      {/* Full Details Modal */}
+      <PropertyDetailModal
+        property={previewProperty}
+        onClose={() => setPreviewProperty(null)}
+      />
+
       {/* Sidebar - Chat Container */}
       <div className="w-full md:w-[480px] flex flex-col border-r bg-white shadow-sm">
         <header className="p-4 border-b flex items-center space-x-2 bg-slate-900 text-white">
@@ -118,14 +128,29 @@ export default function App() {
                   {msg.recommendations.map((prop) => (
                     <div
                       key={prop.listing_id}
-                      onClick={() => setSelectedProperty(prop)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      onClick={() => {
+                        setSelectedProperty(prop);
+                        setPreviewProperty(prop); // Open modal on property click
+                      }}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                         selectedProperty?.listing_id === prop.listing_id
-                          ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                          ? 'border-emerald-500 bg-emerald-50/50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
-                      <h4 className="font-semibold text-sm text-slate-900">{prop.title}</h4>
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-semibold text-sm text-slate-900">{prop.title}</h4>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewProperty(prop);
+                          }}
+                          className="text-xs flex items-center text-emerald-700 font-medium hover:underline bg-emerald-100/60 px-2 py-0.5 rounded-md ml-2"
+                        >
+                          <Eye className="h-3 w-3 mr-1" /> View
+                        </button>
+                      </div>
+
                       <div className="flex items-center text-xs text-slate-500 mt-1 space-x-3">
                         <span className="flex items-center"><MapPin className="h-3 w-3 mr-1" />{prop.village_name}</span>
                         <span className="flex items-center"><Bed className="h-3 w-3 mr-1" />{prop.num_bedrooms} Bed</span>
@@ -171,7 +196,10 @@ export default function App() {
           <PropertyMap
             properties={activeProperties}
             selectedProperty={selectedProperty}
-            onSelectProperty={(prop) => setSelectedProperty(prop)}
+            onSelectProperty={(prop) => {
+              setSelectedProperty(prop);
+              setPreviewProperty(prop); // Open modal on map marker click
+            }}
           />
         </div>
       </div>
