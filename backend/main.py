@@ -117,6 +117,54 @@ def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
     }
 
 
+def format_listing_row(row: dict) -> dict:
+    """Helper function to cleanly format listing fields."""
+    item = dict(row)
+    item["lat"] = float(item["lat"]) if item.get("lat") is not None else None
+    item["lng"] = float(item["lng"]) if item.get("lng") is not None else None
+    item["price_total"] = (
+        float(item["price_total"])
+        if item.get("price_total") is not None
+        else None
+    )
+    item["monthly_rate"] = (
+        float(item["monthly_rate"])
+        if item.get("monthly_rate") is not None
+        else None
+    )
+
+    if isinstance(item.get("amenity_list"), str):
+        try:
+            item["amenity_list"] = json.loads(item["amenity_list"])
+        except Exception:
+            pass
+
+    if isinstance(item.get("nearby_establishments"), str):
+        try:
+            item["nearby_establishments"] = json.loads(
+                item["nearby_establishments"]
+            )
+        except Exception:
+            pass
+
+    return item
+
+
+@app.get("/properties")
+async def get_properties():
+    try:
+        # Fetch all rows from your 'listings' table in Supabase
+        response = supabase.table("listings").select("*").execute()
+        rows = response.data or []
+
+        results = [format_listing_row(row) for row in rows]
+        return results
+
+    except Exception as e:
+        print(f"Supabase GET /properties Error: {e}")
+        return {"error": str(e)}
+
+
 @app.post("/chat")
 async def chat_assistant(prompt: UserPrompt):
     raw_message = prompt.message.strip()
@@ -157,10 +205,12 @@ async def chat_assistant(prompt: UserPrompt):
             query = query.ilike("category", preferences["category"])
 
         if preferences["has_subdivision"]:
-            query = query.or_("village_name.ilike.%subdivision%,village_name.ilike.%village%")
+            query = query.or_(
+                "village_name.ilike.%subdivision%,village_name.ilike.%village%"
+            )
 
         response = query.order("price_total", desc=True).limit(3).execute()
-        rows = response.data
+        rows = response.data or []
 
     except Exception as e:
         print(f"Supabase Query Error: {e}")
@@ -170,29 +220,7 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    results = []
-    for row in rows:
-        item = dict(row)
-        item["lat"] = float(item["lat"]) if item["lat"] is not None else None
-        item["lng"] = float(item["lng"]) if item["lng"] is not None else None
-        item["price_total"] = (
-            float(item["price_total"])
-            if item["price_total"] is not None
-            else None
-        )
-        item["monthly_rate"] = (
-            float(item["monthly_rate"])
-            if item["monthly_rate"] is not None
-            else None
-        )
-
-        if isinstance(item.get("amenity_list"), str):
-            item["amenity_list"] = json.loads(item["amenity_list"])
-
-        if isinstance(item.get("nearby_establishments"), str):
-            item["nearby_establishments"] = json.loads(item["nearby_establishments"])
-
-        results.append(item)
+    results = [format_listing_row(row) for row in rows]
 
     if not results:
         return {
