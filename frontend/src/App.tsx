@@ -1,82 +1,92 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Building, Bed, Bath, AlertCircle, MapPin, Eye } from 'lucide-react';
-import { PropertyMap } from './components/MapContainer';
-import { PropertyDetailModal } from './components/PropertyDetailModal';
-import type { ChatMessage, Property } from './types';
+import React, { useState, useRef, useEffect } from "react"
+import {
+  Send,
+  Building,
+  Bed,
+  Bath,
+  AlertCircle,
+  MapPin,
+  Eye,
+} from "lucide-react"
+import { PropertyMap } from "./components/MapContainer"
+import { PropertyDetailModal } from "./components/PropertyDetailModal"
+import type { ChatMessage, Property } from "./types"
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: '1',
-      sender: 'assistant',
-      text: 'Hello! I am your real estate assistant. What is your budget and location preference?',
+      id: "1",
+      sender: "assistant",
+      text: "Hello! I am your real estate assistant. What is your budget and location preference?",
     },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeProperties, setActiveProperties] = useState<Property[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
-  
-  // State for property full details preview modal
-  const [previewProperty, setPreviewProperty] = useState<Property | null>(null);
+  ])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [activeProperties, setActiveProperties] = useState<Property[]>([])
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null
+  )
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  // State for property full details preview modal
+  const [previewProperty, setPreviewProperty] = useState<Property | null>(null)
+
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      sender: 'user',
+      sender: "user",
       text: input,
-    };
+    }
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("https://alty-thesis.onrender.com/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage.text }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        sender: 'assistant',
+        sender: "assistant",
         text: data.reply,
         status: data.status,
         recommendations: data.recommendations || [],
-      };
+      }
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage])
 
       if (data.recommendations && data.recommendations.length > 0) {
-        setActiveProperties(data.recommendations);
-        setSelectedProperty(data.recommendations[0]);
+        setActiveProperties(data.recommendations)
+        setSelectedProperty(data.recommendations[0])
       }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
-          sender: 'assistant',
-          text: 'Connection error. Please ensure the backend server is running.',
-          status: 'rejected',
+          sender: "assistant",
+          text: "Connection error. Please ensure the backend server is running.",
+          status: "rejected",
         },
-      ]);
+      ])
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
@@ -87,34 +97,34 @@ export default function App() {
       />
 
       {/* Sidebar - Chat Container */}
-      <div className="w-full md:w-[480px] flex flex-col border-r bg-white shadow-sm">
-        <header className="p-4 border-b flex items-center space-x-2 bg-slate-900 text-white">
+      <div className="flex w-full flex-col border-r bg-white shadow-sm md:w-[480px]">
+        <header className="flex items-center space-x-2 border-b bg-slate-900 p-4 text-white">
           <Building className="h-6 w-6 text-emerald-400" />
-          <h1 className="font-semibold text-lg">Property Assistant</h1>
+          <h1 className="text-lg font-semibold">Property Assistant</h1>
         </header>
 
         {/* Message Feed */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex flex-col ${
-                msg.sender === 'user' ? 'items-end' : 'items-start'
+                msg.sender === "user" ? "items-end" : "items-start"
               }`}
             >
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                  msg.sender === 'user'
-                    ? 'bg-slate-900 text-white rounded-br-none'
-                    : msg.status === 'rejected'
-                    ? 'bg-red-50 text-red-800 border border-red-200 rounded-bl-none'
-                    : msg.status === 'clarification_needed'
-                    ? 'bg-amber-50 text-amber-900 border border-amber-200 rounded-bl-none'
-                    : 'bg-slate-100 text-slate-800 rounded-bl-none'
+                  msg.sender === "user"
+                    ? "rounded-br-none bg-slate-900 text-white"
+                    : msg.status === "rejected"
+                      ? "rounded-bl-none border border-red-200 bg-red-50 text-red-800"
+                      : msg.status === "clarification_needed"
+                        ? "rounded-bl-none border border-amber-200 bg-amber-50 text-amber-900"
+                        : "rounded-bl-none bg-slate-100 text-slate-800"
                 }`}
               >
-                {msg.status === 'clarification_needed' && (
-                  <div className="flex items-center space-x-1 font-medium text-amber-700 mb-1">
+                {msg.status === "clarification_needed" && (
+                  <div className="mb-1 flex items-center space-x-1 font-medium text-amber-700">
                     <AlertCircle className="h-4 w-4" />
                     <span>More details needed</span>
                   </div>
@@ -129,34 +139,45 @@ export default function App() {
                     <div
                       key={prop.listing_id}
                       onClick={() => {
-                        setSelectedProperty(prop);
-                        setPreviewProperty(prop); // Open modal on property click
+                        setSelectedProperty(prop)
+                        setPreviewProperty(prop) // Open modal on property click
                       }}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                      className={`cursor-pointer rounded-lg border p-3 transition-all hover:shadow-md ${
                         selectedProperty?.listing_id === prop.listing_id
-                          ? 'border-emerald-500 bg-emerald-50/50'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                          ? "border-emerald-500 bg-emerald-50/50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-sm text-slate-900">{prop.title}</h4>
+                      <div className="flex items-start justify-between">
+                        <h4 className="text-sm font-semibold text-slate-900">
+                          {prop.title}
+                        </h4>
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewProperty(prop);
+                            e.stopPropagation()
+                            setPreviewProperty(prop)
                           }}
-                          className="text-xs flex items-center text-emerald-700 font-medium hover:underline bg-emerald-100/60 px-2 py-0.5 rounded-md ml-2"
+                          className="ml-2 flex items-center rounded-md bg-emerald-100/60 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:underline"
                         >
-                          <Eye className="h-3 w-3 mr-1" /> View
+                          <Eye className="mr-1 h-3 w-3" /> View
                         </button>
                       </div>
 
-                      <div className="flex items-center text-xs text-slate-500 mt-1 space-x-3">
-                        <span className="flex items-center"><MapPin className="h-3 w-3 mr-1" />{prop.village_name}</span>
-                        <span className="flex items-center"><Bed className="h-3 w-3 mr-1" />{prop.num_bedrooms} Bed</span>
-                        <span className="flex items-center"><Bath className="h-3 w-3 mr-1" />{prop.num_bathrooms} Bath</span>
+                      <div className="mt-1 flex items-center space-x-3 text-xs text-slate-500">
+                        <span className="flex items-center">
+                          <MapPin className="mr-1 h-3 w-3" />
+                          {prop.village_name}
+                        </span>
+                        <span className="flex items-center">
+                          <Bed className="mr-1 h-3 w-3" />
+                          {prop.num_bedrooms} Bed
+                        </span>
+                        <span className="flex items-center">
+                          <Bath className="mr-1 h-3 w-3" />
+                          {prop.num_bathrooms} Bath
+                        </span>
                       </div>
-                      <p className="text-emerald-700 font-bold text-sm mt-2">
+                      <p className="mt-2 text-sm font-bold text-emerald-700">
                         ₱{prop.price_total.toLocaleString()}
                       </p>
                     </div>
@@ -166,16 +187,21 @@ export default function App() {
             </div>
           ))}
           {isLoading && (
-            <div className="text-xs text-slate-400 animate-pulse">Assistant is typing...</div>
+            <div className="animate-pulse text-xs text-slate-400">
+              Assistant is typing...
+            </div>
           )}
           <div ref={chatEndRef} />
         </div>
 
         {/* Chat Input */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t bg-white flex space-x-2">
+        <form
+          onSubmit={handleSendMessage}
+          className="flex space-x-2 border-t bg-white p-3"
+        >
           <input
             type="text"
-            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+            className="flex-1 rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none"
             placeholder="Ask about properties (e.g. 5M budget in subdivision)..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -183,7 +209,7 @@ export default function App() {
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition disabled:opacity-50"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -191,18 +217,18 @@ export default function App() {
       </div>
 
       {/* Main Panel - Interactive Leaflet Navigation */}
-      <div className="hidden md:flex flex-1 p-4 flex-col space-y-4">
-        <div className="flex-1 bg-white p-2 rounded-2xl border shadow-sm relative">
+      <div className="hidden flex-1 flex-col space-y-4 p-4 md:flex">
+        <div className="relative flex-1 rounded-2xl border bg-white p-2 shadow-sm">
           <PropertyMap
             properties={activeProperties}
             selectedProperty={selectedProperty}
             onSelectProperty={(prop) => {
-              setSelectedProperty(prop);
-              setPreviewProperty(prop); // Open modal on map marker click
+              setSelectedProperty(prop)
+              setPreviewProperty(prop) // Open modal on map marker click
             }}
           />
         </div>
       </div>
     </div>
-  );
+  )
 }
