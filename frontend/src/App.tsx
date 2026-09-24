@@ -37,18 +37,16 @@ export default function App() {
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // 1. Existing effect: Scrolls chat to bottom when new messages arrive
+  // 1. Scrolls chat to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // 2. NEW effect: Fetches all properties ONCE when the app loads
+  // 2. Fetches all properties ONCE when the app loads
   useEffect(() => {
     const fetchAllProperties = async () => {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/properties"
-        )
+        const response = await fetch("https://alty-thesis.onrender.com/properties")
         const data = await response.json()
 
         if (Array.isArray(data) && data.length > 0) {
@@ -60,7 +58,7 @@ export default function App() {
     }
 
     fetchAllProperties()
-  }, []) // Empty dependency array means "run once on component mount"
+  }, [])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,7 +95,8 @@ export default function App() {
 
       if (data.recommendations && data.recommendations.length > 0) {
         setActiveProperties(data.recommendations)
-        setSelectedProperty(data.recommendations[0])
+        // ❌ REMOVED: setSelectedProperty(data.recommendations[0]) 
+        // Keeping selectedProperty null until user explicitly clicks "View" or a map pin!
       }
     } catch (err) {
       setMessages((prev) => [
@@ -113,14 +112,19 @@ export default function App() {
       setIsLoading(false)
     }
   }
-  
+
+  // Helper to close preview modal & remove establishment pins simultaneously
+  const handleClosePreview = () => {
+    setPreviewProperty(null)
+    setSelectedProperty(null)
+  }
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
       {/* Full Details Modal */}
       <PropertyDetailModal
         property={previewProperty}
-        onClose={() => setPreviewProperty(null)}
+        onClose={handleClosePreview}
       />
 
       {/* Mobile/Tablet Header & Tab Navigation Switcher */}
@@ -219,6 +223,7 @@ export default function App() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
+                            setSelectedProperty(prop)
                             setPreviewProperty(prop)
                           }}
                           className="ml-2 flex shrink-0 items-center rounded-md bg-emerald-100/60 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:underline"
