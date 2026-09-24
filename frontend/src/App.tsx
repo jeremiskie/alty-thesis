@@ -37,9 +37,30 @@ export default function App() {
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // 1. Existing effect: Scrolls chat to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // 2. NEW effect: Fetches all properties ONCE when the app loads
+  useEffect(() => {
+    const fetchAllProperties = async () => {
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:8000/properties"
+        )
+        const data = await response.json()
+
+        if (Array.isArray(data) && data.length > 0) {
+          setActiveProperties(data)
+        }
+      } catch (err) {
+        console.error("Failed to load initial properties:", err)
+      }
+    }
+
+    fetchAllProperties()
+  }, []) // Empty dependency array means "run once on component mount"
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,6 +113,7 @@ export default function App() {
       setIsLoading(false)
     }
   }
+  
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
@@ -155,14 +177,14 @@ export default function App() {
               }`}
             >
               <div
-                className={`max-w-[88%] rounded-2xl px-4 py-3 text-xs sm:text-sm shadow-sm ${
+                className={`max-w-[88%] rounded-2xl px-4 py-3 text-xs shadow-sm sm:text-sm ${
                   msg.sender === "user"
                     ? "rounded-br-none bg-slate-900 text-white"
                     : msg.status === "rejected"
-                    ? "rounded-bl-none border border-red-200 bg-red-50 text-red-800"
-                    : msg.status === "clarification_needed"
-                    ? "rounded-bl-none border border-amber-200 bg-amber-50 text-amber-900"
-                    : "rounded-bl-none bg-slate-100 text-slate-800"
+                      ? "rounded-bl-none border border-red-200 bg-red-50 text-red-800"
+                      : msg.status === "clarification_needed"
+                        ? "rounded-bl-none border border-amber-200 bg-amber-50 text-amber-900"
+                        : "rounded-bl-none bg-slate-100 text-slate-800"
                 }`}
               >
                 {msg.status === "clarification_needed" && (
@@ -191,7 +213,7 @@ export default function App() {
                       }`}
                     >
                       <div className="flex items-start justify-between">
-                        <h4 className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
+                        <h4 className="text-xs leading-snug font-semibold text-slate-900 sm:text-sm">
                           {prop.title}
                         </h4>
                         <button
@@ -243,7 +265,7 @@ export default function App() {
         >
           <input
             type="text"
-            className="flex-1 rounded-lg border px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none"
+            className="flex-1 rounded-lg border px-3 py-2 text-xs focus:ring-2 focus:ring-slate-900 focus:outline-none sm:text-sm"
             placeholder="Ask about properties (e.g. 5M budget in subdivision)..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -264,7 +286,7 @@ export default function App() {
           activeTab === "map" ? "flex" : "hidden md:flex"
         }`}
       >
-        <div className="relative h-full w-full flex-1 rounded-xl sm:rounded-2xl border bg-white p-1 sm:p-2 shadow-sm">
+        <div className="relative h-full w-full flex-1 rounded-xl border bg-white p-1 shadow-sm sm:rounded-2xl sm:p-2">
           <PropertyMap
             properties={activeProperties}
             selectedProperty={selectedProperty}
