@@ -40,3 +40,10 @@ export interface ChatMessage {
   status?: 'rejected' | 'clarification_needed' | 'success';
   recommendations?: Property[];
 }
+
+export interface MapProps {
+  properties: Property[];
+  selectedProperty: Property | null;
+  onSelectProperty: (property: Property) => void;
+  onClearNearby?: () => void;
+}

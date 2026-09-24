@@ -46,7 +46,9 @@ export default function App() {
   useEffect(() => {
     const fetchAllProperties = async () => {
       try {
-        const response = await fetch("https://alty-thesis.onrender.com/properties")
+        const response = await fetch(
+          "https://alty-thesis.onrender.com/properties"
+        )
         const data = await response.json()
 
         if (Array.isArray(data) && data.length > 0) {
@@ -95,7 +97,7 @@ export default function App() {
 
       if (data.recommendations && data.recommendations.length > 0) {
         setActiveProperties(data.recommendations)
-        // ❌ REMOVED: setSelectedProperty(data.recommendations[0]) 
+        // ❌ REMOVED: setSelectedProperty(data.recommendations[0])
         // Keeping selectedProperty null until user explicitly clicks "View" or a map pin!
       }
     } catch (err) {
@@ -116,7 +118,6 @@ export default function App() {
   // Helper to close preview modal & remove establishment pins simultaneously
   const handleClosePreview = () => {
     setPreviewProperty(null)
-    setSelectedProperty(null)
   }
 
   return (
@@ -299,6 +300,7 @@ export default function App() {
               setSelectedProperty(prop)
               setPreviewProperty(prop)
             }}
+            onClearNearby={() => setSelectedProperty(null)} // 👈 This powers the "Hide Nearby Places" floating button!
           />
         </div>
       </div>

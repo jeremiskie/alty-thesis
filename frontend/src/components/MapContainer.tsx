@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { Property, NearbyEstablishmentsMap } from '../types';
+import type { MapProps, NearbyEstablishmentsMap } from '../types';
 
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -52,13 +52,6 @@ const createCustomEmojiIcon = (emoji: string) => {
   });
 };
 
-interface MapProps {
-  properties: Property[];
-  selectedProperty: Property | null;
-  onSelectProperty: (property: Property) => void;
-}
-
-// Zero-delay observer component for instantly fixing unrendered tiles
 const MapResizer: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
   const map = useMap();
 
@@ -66,7 +59,6 @@ const MapResizer: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
     const container = map.getContainer();
     if (!container) return;
 
-    // Observe container size changes (e.g. tab switches, window resizing)
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         map.invalidateSize();
@@ -88,6 +80,7 @@ export const PropertyMap: React.FC<MapProps> = ({
   properties,
   selectedProperty,
   onSelectProperty,
+  onClearNearby,
 }) => {
   const validProperties = properties.filter((p) => p.lat !== null && p.lng !== null);
   const defaultCenter: [number, number] =
@@ -118,6 +111,16 @@ export const PropertyMap: React.FC<MapProps> = ({
 
   return (
     <div className="h-full w-full relative min-h-[300px]">
+      {/* Floating Control Button to Clear Establishment Pins */}
+      {selectedProperty && onClearNearby && (
+        <button
+          onClick={onClearNearby}
+          className="absolute top-3 right-3 z-[1000] flex items-center gap-1.5 bg-white/95 hover:bg-white text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md border border-slate-200 transition-all hover:text-red-600 hover:shadow-lg active:scale-95"
+        >
+          <span>📍</span> Hide Nearby Places
+        </button>
+      )}
+
       <MapContainer
         center={defaultCenter}
         zoom={13}
@@ -130,6 +133,7 @@ export const PropertyMap: React.FC<MapProps> = ({
 
         <MapResizer lat={activeCenter.lat} lng={activeCenter.lng} />
 
+        {/* 1. Property Pins */}
         {validProperties.map((prop) => (
           <Marker
             key={prop.listing_id}
@@ -150,6 +154,7 @@ export const PropertyMap: React.FC<MapProps> = ({
           </Marker>
         ))}
 
+        {/* 2. Establishment Pins (visible only when selectedProperty exists) */}
         {selectedProperty?.lat &&
           selectedProperty?.lng &&
           Object.entries(selectedNearby).map(([category, items], catIdx) => {
