@@ -1,16 +1,24 @@
 import React from 'react';
-import { X, Bed, Bath, MapPin, CheckCircle2, Building } from 'lucide-react';
-import type { Property } from '../types';
+import { X, Bed, Bath, MapPin, CheckCircle2, Building, Navigation } from 'lucide-react';
+import type { Property, NearbyEstablishmentsMap } from '../types';
 
 interface ModalProps {
   property: Property | null;
   onClose: () => void;
 }
 
+const CATEGORY_META: Record<string, { label: string; icon: string }> = {
+  hospitals: { label: 'Hospitals', icon: '🏥' },
+  malls: { label: 'Malls', icon: '🛍️' },
+  markets: { label: 'Markets', icon: '🛒' },
+  parks: { label: 'Parks', icon: '🌳' },
+  schools: { label: 'Schools', icon: '🎓' },
+  transit: { label: 'Transit', icon: '🚆' },
+};
+
 export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose }) => {
   if (!property) return null;
 
-  // Parse amenity list if returned as JSON string
   let amenities: Record<string, boolean> = {};
   if (typeof property.amenity_list === 'string') {
     try {
@@ -22,10 +30,29 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
     amenities = property.amenity_list;
   }
 
+  let nearby: NearbyEstablishmentsMap = {};
+  const rawNearby = property.nearby_establishments;
+
+  if (typeof rawNearby === 'string') {
+    try {
+      nearby = JSON.parse(rawNearby);
+    } catch {
+      nearby = {};
+    }
+  } else if (rawNearby && typeof rawNearby === 'object') {
+    nearby = rawNearby as NearbyEstablishmentsMap;
+  }
+
+  const hasNearbyData =
+    nearby &&
+    typeof nearby === 'object' &&
+    Object.values(nearby).some(
+      (arr) => Array.isArray(arr) && arr.length > 0
+    );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
-        {/* Header / Photo Banner */}
         <div className="relative h-48 bg-slate-800 flex items-center justify-center">
           {property.photos && property.photos.length > 0 ? (
             <img
@@ -47,7 +74,6 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-4">
           <div>
             <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full uppercase tracking-wider">
@@ -77,7 +103,6 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
             )}
           </div>
 
-          {/* Quick Specs */}
           <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div className="flex items-center space-x-2 text-slate-700 text-sm">
               <Bed className="h-4 w-4 text-emerald-600" />
@@ -89,7 +114,6 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
             </div>
           </div>
 
-          {/* Description Details */}
           {property.details && (
             <div>
               <h3 className="text-xs font-semibold uppercase text-slate-400 mb-1">Description</h3>
@@ -97,7 +121,6 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
             </div>
           )}
 
-          {/* Amenities List */}
           {Object.keys(amenities).length > 0 && (
             <div>
               <h3 className="text-xs font-semibold uppercase text-slate-400 mb-2">Amenities</h3>
@@ -116,9 +139,34 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({ property, onClose })
               </div>
             </div>
           )}
+
+          {hasNearbyData && (
+            <div className="pt-2 border-t border-slate-100">
+              <h3 className="text-xs font-semibold uppercase text-slate-400 mb-2.5 flex items-center">
+                <Navigation className="h-3.5 w-3.5 mr-1 text-slate-400" />
+                Nearby Establishments
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(nearby).map(([category, places]) => {
+                  if (!Array.isArray(places) || places.length === 0) return null;
+                  const meta = CATEGORY_META[category] || { label: category, icon: '📍' };
+
+                  return places.map((place, idx) => (
+                    <span
+                      key={`${category}-${idx}`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/60"
+                    >
+                      <span>{meta.icon}</span>
+                      <span className="font-semibold">{place.name}</span>
+                      <span className="text-slate-400 text-[11px]">({place.distance_km} km)</span>
+                    </span>
+                  ));
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Modal Footer */}
         <div className="p-4 border-t bg-slate-50 flex justify-end">
           <button
             onClick={onClose}
