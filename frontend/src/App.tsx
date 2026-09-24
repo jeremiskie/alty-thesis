@@ -7,6 +7,8 @@ import {
   AlertCircle,
   MapPin,
   Eye,
+  MessageSquare,
+  Map as MapIcon,
 } from "lucide-react"
 import { PropertyMap } from "./components/MapContainer"
 import { PropertyDetailModal } from "./components/PropertyDetailModal"
@@ -26,6 +28,9 @@ export default function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null
   )
+
+  // Responsive state: 'chat' | 'map' for mobile/tablet screens
+  const [activeTab, setActiveTab] = useState<"chat" | "map">("chat")
 
   // State for property full details preview modal
   const [previewProperty, setPreviewProperty] = useState<Property | null>(null)
@@ -89,22 +94,59 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
       {/* Full Details Modal */}
       <PropertyDetailModal
         property={previewProperty}
         onClose={() => setPreviewProperty(null)}
       />
 
+      {/* Mobile/Tablet Header & Tab Navigation Switcher */}
+      <div className="flex flex-col border-b bg-slate-900 text-white md:hidden">
+        <header className="flex items-center space-x-2 p-3">
+          <Building className="h-6 w-6 text-emerald-400" />
+          <h1 className="text-base font-semibold">Property Assistant</h1>
+        </header>
+
+        <div className="flex border-t border-slate-800 bg-slate-950/50">
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={`flex flex-1 items-center justify-center space-x-2 py-2.5 text-xs font-semibold transition ${
+              activeTab === "chat"
+                ? "border-b-2 border-emerald-400 bg-slate-800 text-emerald-400"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>Chat Assistant</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("map")}
+            className={`flex flex-1 items-center justify-center space-x-2 py-2.5 text-xs font-semibold transition ${
+              activeTab === "map"
+                ? "border-b-2 border-emerald-400 bg-slate-800 text-emerald-400"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <MapIcon className="h-4 w-4" />
+            <span>Interactive Map ({activeProperties.length})</span>
+          </button>
+        </div>
+      </div>
+
       {/* Sidebar - Chat Container */}
-      <div className="flex w-full flex-col border-r bg-white shadow-sm md:w-[480px]">
-        <header className="flex items-center space-x-2 border-b bg-slate-900 p-4 text-white">
+      <div
+        className={`flex h-full w-full flex-col border-r bg-white shadow-sm md:w-[420px] lg:w-[480px] ${
+          activeTab === "chat" ? "flex" : "hidden md:flex"
+        }`}
+      >
+        <header className="hidden items-center space-x-2 border-b bg-slate-900 p-4 text-white md:flex">
           <Building className="h-6 w-6 text-emerald-400" />
           <h1 className="text-lg font-semibold">Property Assistant</h1>
         </header>
 
         {/* Message Feed */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-3 sm:p-4">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -113,14 +155,14 @@ export default function App() {
               }`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                className={`max-w-[88%] rounded-2xl px-4 py-3 text-xs sm:text-sm shadow-sm ${
                   msg.sender === "user"
                     ? "rounded-br-none bg-slate-900 text-white"
                     : msg.status === "rejected"
-                      ? "rounded-bl-none border border-red-200 bg-red-50 text-red-800"
-                      : msg.status === "clarification_needed"
-                        ? "rounded-bl-none border border-amber-200 bg-amber-50 text-amber-900"
-                        : "rounded-bl-none bg-slate-100 text-slate-800"
+                    ? "rounded-bl-none border border-red-200 bg-red-50 text-red-800"
+                    : msg.status === "clarification_needed"
+                    ? "rounded-bl-none border border-amber-200 bg-amber-50 text-amber-900"
+                    : "rounded-bl-none bg-slate-100 text-slate-800"
                 }`}
               >
                 {msg.status === "clarification_needed" && (
@@ -140,7 +182,7 @@ export default function App() {
                       key={prop.listing_id}
                       onClick={() => {
                         setSelectedProperty(prop)
-                        setPreviewProperty(prop) // Open modal on property click
+                        setPreviewProperty(prop)
                       }}
                       className={`cursor-pointer rounded-lg border p-3 transition-all hover:shadow-md ${
                         selectedProperty?.listing_id === prop.listing_id
@@ -149,7 +191,7 @@ export default function App() {
                       }`}
                     >
                       <div className="flex items-start justify-between">
-                        <h4 className="text-sm font-semibold text-slate-900">
+                        <h4 className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
                           {prop.title}
                         </h4>
                         <button
@@ -157,23 +199,23 @@ export default function App() {
                             e.stopPropagation()
                             setPreviewProperty(prop)
                           }}
-                          className="ml-2 flex items-center rounded-md bg-emerald-100/60 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:underline"
+                          className="ml-2 flex shrink-0 items-center rounded-md bg-emerald-100/60 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:underline"
                         >
                           <Eye className="mr-1 h-3 w-3" /> View
                         </button>
                       </div>
 
-                      <div className="mt-1 flex items-center space-x-3 text-xs text-slate-500">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                         <span className="flex items-center">
-                          <MapPin className="mr-1 h-3 w-3" />
+                          <MapPin className="mr-1 h-3 w-3 text-slate-400" />
                           {prop.village_name}
                         </span>
                         <span className="flex items-center">
-                          <Bed className="mr-1 h-3 w-3" />
+                          <Bed className="mr-1 h-3 w-3 text-slate-400" />
                           {prop.num_bedrooms} Bed
                         </span>
                         <span className="flex items-center">
-                          <Bath className="mr-1 h-3 w-3" />
+                          <Bath className="mr-1 h-3 w-3 text-slate-400" />
                           {prop.num_bathrooms} Bath
                         </span>
                       </div>
@@ -197,11 +239,11 @@ export default function App() {
         {/* Chat Input */}
         <form
           onSubmit={handleSendMessage}
-          className="flex space-x-2 border-t bg-white p-3"
+          className="flex space-x-2 border-t bg-white p-2.5 sm:p-3"
         >
           <input
             type="text"
-            className="flex-1 rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none"
+            className="flex-1 rounded-lg border px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-slate-900 focus:outline-none"
             placeholder="Ask about properties (e.g. 5M budget in subdivision)..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -209,7 +251,7 @@ export default function App() {
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-lg bg-slate-900 px-3.5 py-2 text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -217,14 +259,18 @@ export default function App() {
       </div>
 
       {/* Main Panel - Interactive Leaflet Navigation */}
-      <div className="hidden flex-1 flex-col space-y-4 p-4 md:flex">
-        <div className="relative flex-1 rounded-2xl border bg-white p-2 shadow-sm">
+      <div
+        className={`h-full flex-1 flex-col p-2 sm:p-4 ${
+          activeTab === "map" ? "flex" : "hidden md:flex"
+        }`}
+      >
+        <div className="relative h-full w-full flex-1 rounded-xl sm:rounded-2xl border bg-white p-1 sm:p-2 shadow-sm">
           <PropertyMap
             properties={activeProperties}
             selectedProperty={selectedProperty}
             onSelectProperty={(prop) => {
               setSelectedProperty(prop)
-              setPreviewProperty(prop) // Open modal on map marker click
+              setPreviewProperty(prop)
             }}
           />
         </div>
