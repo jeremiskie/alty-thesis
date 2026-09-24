@@ -1,6 +1,8 @@
 export interface EstablishmentItem {
   name: string;
   distance_km: number;
+  lat?: number;
+  lng?: number;
 }
 
 export type NearbyEstablishmentsMap = Record<string, EstablishmentItem[]>;
@@ -19,7 +21,7 @@ export interface Property {
   photos?: string[];
   amenity_list?: string | Record<string, boolean>;
   details?: string;
-  nearby_establishments?: string | NearbyEstablishmentsMap; // ADD THIS LINE
+  nearby_establishments?: string | NearbyEstablishmentsMap;
 }
 
 export interface ChatMessage {
