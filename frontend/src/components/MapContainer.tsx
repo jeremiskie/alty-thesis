@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Property, NearbyEstablishmentsMap } from '../types';
@@ -58,11 +58,29 @@ interface MapProps {
   onSelectProperty: (property: Property) => void;
 }
 
-const MapRecenter: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
+// Zero-delay observer component for instantly fixing unrendered tiles
+const MapResizer: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
   const map = useMap();
+
   useEffect(() => {
-    map.setView([lat, lng], 14);
-  }, [lat, lng, map]);
+    const container = map.getContainer();
+    if (!container) return;
+
+    // Observe container size changes (e.g. tab switches, window resizing)
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        map.invalidateSize();
+        map.setView([lat, lng], map.getZoom(), { animate: false });
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [map, lat, lng]);
+
   return null;
 };
 
@@ -82,7 +100,7 @@ export const PropertyMap: React.FC<MapProps> = ({
       ? { lat: selectedProperty.lat, lng: selectedProperty.lng }
       : validProperties.length > 0 && validProperties[0].lat && validProperties[0].lng
       ? { lat: validProperties[0].lat, lng: validProperties[0].lng }
-      : null;
+      : { lat: defaultCenter[0], lng: defaultCenter[1] };
 
   let selectedNearby: NearbyEstablishmentsMap = {};
   if (selectedProperty?.nearby_establishments) {
@@ -99,13 +117,18 @@ export const PropertyMap: React.FC<MapProps> = ({
   }
 
   return (
-    <div className="h-full w-full relative min-h-[400px]">
-      <MapContainer center={defaultCenter} zoom={13} className="h-full w-full rounded-xl z-0">
+    <div className="h-full w-full relative min-h-[300px]">
+      <MapContainer
+        center={defaultCenter}
+        zoom={13}
+        className="h-full w-full rounded-xl z-0"
+      >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {activeCenter && <MapRecenter lat={activeCenter.lat} lng={activeCenter.lng} />}
+
+        <MapResizer lat={activeCenter.lat} lng={activeCenter.lng} />
 
         {validProperties.map((prop) => (
           <Marker
