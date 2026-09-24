@@ -1,41 +1,36 @@
+import json
+import os
 import re
 from contextlib import asynccontextmanager
-import asyncpg
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import spacy
+from supabase import Client, create_client
+
+load_dotenv()
 
 # ---------------------------------------------------------
-# DATABASE CONFIGURATION
+# SUPABASE SDK INITIALIZATION (REST API / HTTP Client)
 # ---------------------------------------------------------
-DB_CONFIG = {
-    "user": "postgres",
-    "password": "tetsuyavirtus",
-    "database": "property_db",
-    "host": "localhost",
-    "port": 5432,
-}
+SUPABASE_URL: str = os.getenv("SUPABASE_URL")
+SUPABASE_KEY: str = os.getenv("SUPABASE_KEY")
 
-db_pool: asyncpg.Pool = None
+if not SUPABASE_KEY:
+    print("⚠️ WARNING: SUPABASE_KEY is missing in your .env file!")
+
+# Initialize Supabase Client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 nlp = spacy.load("en_core_web_sm")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global db_pool
-    db_pool = await asyncpg.create_pool(**DB_CONFIG)
-    yield
-    await db_pool.close()
 
 
 app = FastAPI(
     title="Property Recommendation Assistant",
     version="1.0.0",
-    lifespan=lifespan,
 )
 
-# Enable CORS for React Frontend (running on port 5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,75 +44,48 @@ class UserPrompt(BaseModel):
     message: str
 
 
-# ---------------------------------------------------------
-# HELPER FUNCTIONS (TEXT NORMALIZATION & NLP)
-# ---------------------------------------------------------
 def normalize_input(text: str) -> str:
-    """
-    Inserts spaces between numbers and attached words.
-    Example: '8Million' -> '8 Million', '500thousand' -> '500 thousand'
-    """
+    """Inserts spaces between numbers and attached words (e.g., '8Million' -> '8 Million')."""
     return re.sub(r"(\d+)\s*([a-zA-Z]+)", r"\1 \2", text, flags=re.IGNORECASE)
 
 
 def has_gibberish_or_nonsense(doc: spacy.tokens.Doc) -> bool:
-    """Detects nonsense character sequences or invalid word structures."""
     vowels = set("aeiouyAEIOUY")
-
     for token in doc:
-        # Check tokens for mixed alphanumeric gibberish (e.g., 'qwwerty123asdf')
         if not token.is_alpha:
             if re.search(r"[a-zA-Z]{4,}\d+|\d+[a-zA-Z]{4,}", token.text):
                 return True
             continue
 
         text = token.text.lower()
-
-        # 1. Words longer than 5 letters with NO vowels
         if len(text) > 5 and not any(c in vowels for c in text):
             return True
-
-        # 2. Keyboard walks / common spam patterns
         if re.search(
             r"(asdf|qwerty|zxcv|ghjkl|1234|qwer|dfgh|hjkl|aaaa|zzzz|xxxx)", text
         ):
             return True
-
-        # 3. Three or more consecutive identical characters
         if re.search(r"(.)\1{2,}", text):
             return True
-
     return False
 
 
 def parse_budget(text: str) -> float | None:
-    """
-    Parses numeric budget patterns including full words and shortcuts:
-    - Billions: 1.5B, 2 Billion, 2 Billions
-    - Millions: 8M, 8Million, 8 Millions, 8.5 million
-    - Thousands: 500K, 500Thousand, 500 Thousands
-    - Raw numbers: 5000000, 8,000,000
-    """
     text_clean = text.lower().replace(",", "")
 
-    # Match Billions (e.g., 1b, 2 billion, 2 billions)
     match_b = re.search(r"(\d+(?:\.\d+)?)\s*(?:b|billion|billions)", text_clean)
     if match_b:
         return float(match_b.group(1)) * 1_000_000_000
 
-    # Match Millions (e.g., 8m, 8million, 8 millions)
     match_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|million|millions)", text_clean)
     if match_m:
         return float(match_m.group(1)) * 1_000_000
 
-    # Match Thousands (e.g., 500k, 500thousand, 500 thousands)
     match_k = re.search(
         r"(\d+(?:\.\d+)?)\s*(?:k|thousand|thousands)", text_clean
     )
     if match_k:
         return float(match_k.group(1)) * 1_000
 
-    # Match raw standalone numbers >= 10,000
     match_raw = re.findall(r"\b\d{5,10}\b", text_clean)
     if match_raw:
         return float(match_raw[0])
@@ -126,7 +94,6 @@ def parse_budget(text: str) -> float | None:
 
 
 def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
-    """Extracts budget, category, locations, subdivision preference, and office proximity intent."""
     budget = parse_budget(text)
     text_lower = text.lower()
 
@@ -157,9 +124,6 @@ def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
     }
 
 
-# ---------------------------------------------------------
-# API ENDPOINT
-# ---------------------------------------------------------
 @app.post("/chat")
 async def chat_assistant(prompt: UserPrompt):
     raw_message = prompt.message.strip()
@@ -171,11 +135,9 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    # Normalize input BEFORE spaCy processing (e.g., '8Million' -> '8 Million')
     normalized_message = normalize_input(raw_message)
     doc = nlp(normalized_message)
 
-    # Reject prompts containing real gibberish/nonsense
     if has_gibberish_or_nonsense(doc):
         return {
             "status": "rejected",
@@ -185,7 +147,6 @@ async def chat_assistant(prompt: UserPrompt):
 
     preferences = extract_preferences(normalized_message, doc)
 
-    # Casual conversation response
     if not preferences["budget"] and not preferences["category"]:
         return {
             "status": "casual_chat",
@@ -193,35 +154,33 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    # Query PostgreSQL
-    query = """
-        SELECT 
-            listing_id, title, category, price_total, monthly_rate, 
-            num_bedrooms, num_bathrooms, village_name, lat, lng, 
-            photos, amenity_list, details 
-        FROM listings 
-        WHERE 1=1
-    """
-    params = []
-    param_idx = 1
+    try:
+        # Build query using the Supabase SDK query builder
+        query = supabase.table("listings").select(
+            "listing_id, title, category, price_total, monthly_rate, num_bedrooms, num_bathrooms, village_name, lat, lng, photos, amenity_list, details"
+        )
 
-    if preferences["budget"]:
-        query += f" AND price_total <= ${param_idx}"
-        params.append(preferences["budget"])
-        param_idx += 1
+        if preferences["budget"]:
+            query = query.lte("price_total", preferences["budget"])
 
-    if preferences["category"]:
-        query += f" AND LOWER(category) = LOWER(${param_idx})"
-        params.append(preferences["category"])
-        param_idx += 1
+        if preferences["category"]:
+            query = query.ilike("category", preferences["category"])
 
-    if preferences["has_subdivision"]:
-        query += " AND (LOWER(village_name) LIKE '%subdivision%' OR LOWER(village_name) LIKE '%village%')"
+        if preferences["has_subdivision"]:
+            # Combine filters using PostgREST 'or' logic
+            query = query.or_("village_name.ilike.%subdivision%,village_name.ilike.%village%")
 
-    query += " ORDER BY price_total DESC LIMIT 3;"
+        # Order and limit results
+        response = query.order("price_total", desc=True).limit(3).execute()
+        rows = response.data
 
-    async with db_pool.acquire() as connection:
-        rows = await connection.fetch(query, *params)
+    except Exception as e:
+        print(f"Supabase Query Error: {e}")
+        return {
+            "status": "error",
+            "reply": f"Database error occurred: {str(e)}",
+            "recommendations": [],
+        }
 
     results = []
     for row in rows:
@@ -238,6 +197,10 @@ async def chat_assistant(prompt: UserPrompt):
             if item["monthly_rate"] is not None
             else None
         )
+
+        if isinstance(item.get("amenity_list"), str):
+            item["amenity_list"] = json.loads(item["amenity_list"])
+
         results.append(item)
 
     if not results:
