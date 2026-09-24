@@ -11,20 +11,14 @@ from supabase import Client, create_client
 
 load_dotenv()
 
-# ---------------------------------------------------------
-# SUPABASE SDK INITIALIZATION (REST API / HTTP Client)
-# ---------------------------------------------------------
 SUPABASE_URL: str = os.getenv("SUPABASE_URL")
 SUPABASE_KEY: str = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_KEY:
     print("⚠️ WARNING: SUPABASE_KEY is missing in your .env file!")
 
-# Initialize Supabase Client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 nlp = spacy.load("en_core_web_sm")
-
 
 app = FastAPI(
     title="Property Recommendation Assistant",
@@ -45,7 +39,6 @@ class UserPrompt(BaseModel):
 
 
 def normalize_input(text: str) -> str:
-    """Inserts spaces between numbers and attached words (e.g., '8Million' -> '8 Million')."""
     return re.sub(r"(\d+)\s*([a-zA-Z]+)", r"\1 \2", text, flags=re.IGNORECASE)
 
 
@@ -155,10 +148,7 @@ async def chat_assistant(prompt: UserPrompt):
         }
 
     try:
-        # Build query using the Supabase SDK query builder
-        query = supabase.table("listings").select(
-            "listing_id, title, category, price_total, monthly_rate, num_bedrooms, num_bathrooms, village_name, lat, lng, photos, amenity_list, details"
-        )
+        query = supabase.table("listings").select("*")
 
         if preferences["budget"]:
             query = query.lte("price_total", preferences["budget"])
@@ -167,10 +157,8 @@ async def chat_assistant(prompt: UserPrompt):
             query = query.ilike("category", preferences["category"])
 
         if preferences["has_subdivision"]:
-            # Combine filters using PostgREST 'or' logic
             query = query.or_("village_name.ilike.%subdivision%,village_name.ilike.%village%")
 
-        # Order and limit results
         response = query.order("price_total", desc=True).limit(3).execute()
         rows = response.data
 
@@ -200,6 +188,9 @@ async def chat_assistant(prompt: UserPrompt):
 
         if isinstance(item.get("amenity_list"), str):
             item["amenity_list"] = json.loads(item["amenity_list"])
+
+        if isinstance(item.get("nearby_establishments"), str):
+            item["nearby_establishments"] = json.loads(item["nearby_establishments"])
 
         results.append(item)
 
