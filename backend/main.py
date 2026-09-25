@@ -6,6 +6,7 @@ from keywords import (
     WORKPLACE_REGEX,
     extract_preferences,
     has_gibberish_or_nonsense,
+    is_valid_location_candidate,
     normalize_input,
     parse_max_commute_time,
 )
@@ -67,12 +68,17 @@ async def chat_assistant(prompt: UserPrompt):
     # Detect location phrases
     workplace_match = WORKPLACE_REGEX.search(normalized_message)
     if workplace_match:
-        geo = geocode_location(workplace_match.group(1).strip())
-        if geo:
-            work_lat, work_lng, work_name = geo["lat"], geo["lng"], geo["name"]
-            detected_workplace = geo
-        else:
-            geocode_failed = True
+        candidate = workplace_match.group(1).strip()
+        if is_valid_location_candidate(candidate):
+            geo = geocode_location(candidate)
+            if geo:
+                work_lat, work_lng, work_name = geo["lat"], geo["lng"], geo["name"]
+                detected_workplace = geo
+            else:
+                geocode_failed = True
+        # else: generic phrase like "my work site location" was captured —
+        # not a real place name, so we skip geocoding it and fall back to
+        # whatever workplace_lat/lng the frontend already had set.
 
     max_commute_mins = parse_max_commute_time(normalized_message)
 
@@ -83,11 +89,15 @@ async def chat_assistant(prompt: UserPrompt):
             "recommendations": [],
         }
 
-    if (
-        not preferences["budget"]
-        and not preferences["category"]
-        and not work_name
-    ):
+    has_any_criteria = (
+        preferences["budget"]
+        or preferences["downpayment_budget"]
+        or preferences["monthly_budget"]
+        or preferences["category"]
+        or work_name
+    )
+
+    if not has_any_criteria:
         return {
             "status": "casual_chat",
             "reply": "Hello! I am your real estate assistant. Please provide your budget or workplace (e.g., 'I work at BGC Taguig').",
@@ -96,8 +106,14 @@ async def chat_assistant(prompt: UserPrompt):
 
     try:
         query = supabase.table("listings").select("*")
+
+        if preferences["downpayment_budget"]:
+            query = query.lte("initial_dp", preferences["downpayment_budget"])
+        if preferences["monthly_budget"]:
+            query = query.lte("monthly_rate", preferences["monthly_budget"])
         if preferences["budget"]:
-            query = query.lte("price_total", preferences["budget"])
+            budget_column = "initial_dp" if preferences["is_downpayment"] else "price_total"
+            query = query.lte(budget_column, preferences["budget"])
         if preferences["category"]:
             query = query.ilike("category", preferences["category"])
         if preferences["has_subdivision"]:
@@ -157,6 +173,12 @@ async def chat_assistant(prompt: UserPrompt):
         if work_name and max_commute_mins
         else f"I calculated travel routes to {work_name} and ranked them by shortest commute!"
         if work_name
+        else f"With a downpayment of ₱{preferences['downpayment_budget']:,.2f} and ₱{preferences['monthly_budget']:,.2f} monthly, I recommend '{results[0]['title']}'."
+        if preferences["downpayment_budget"] and preferences["monthly_budget"]
+        else f"Based on your downpayment of ₱{preferences['downpayment_budget']:,.2f}, I recommend '{results[0]['title']}'."
+        if preferences["downpayment_budget"]
+        else f"Based on your monthly budget of ₱{preferences['monthly_budget']:,.2f}, I recommend '{results[0]['title']}'."
+        if preferences["monthly_budget"]
         else f"Based on your budget of ₱{preferences['budget']:,.2f}, I recommend '{results[0]['title']}'."
         if preferences["budget"]
         else "Here are the top options matching your search."

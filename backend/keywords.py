@@ -1,16 +1,25 @@
 import re
 import spacy
 
-HOUSE_KEYWORDS = {"house", "subdivision", "home", "villa"}
+HOUSE_KEYWORDS = {"house", "subdivision", "home", "villa", "village", "townhouse", "town house"}
 CONDO_KEYWORDS = {"condo", "apartment"}
 WORKPLACE_KEYWORDS = {"office", "work", "job site", "workplace", "site", "commute"}
+
+# Words that indicate the WORKPLACE_REGEX captured a generic phrase,
+# not an actual place name (e.g. "near my work site location")
+GENERIC_LOCATION_WORDS = {
+    "location", "area", "place", "site", "office", "work",
+    "workplace", "job", "here", "there", "commute",
+}
+
+DOWNPAYMENT_KEYWORDS = {"downpayment", "down payment", "dp"}
+MONTHLY_KEYWORDS = {"per month", "monthly", "a month", "/month", "each month"}
 
 GIBBERISH_REGEX_1 = re.compile(r"[a-zA-Z]{4,}\d+|\d+[a-zA-Z]{4,}")
 GIBBERISH_REGEX_2 = re.compile(
     r"(asdf|qwerty|zxcv|ghjkl|1234|qwer|dfgh|hjkl|aaaa|zzzz|xxxx)"
 )
 
-# Updated WORKPLACE_REGEX to include "workplace is", "workplace is at", etc.
 WORKPLACE_REGEX = re.compile(
     r"(?:work at|workplace is at|workplace is|my workplace is|office is at|office in|near|close to|job at|workplace in)\s+([a-zA-Z0-9\s]+?)(?:,|\.|$|find|with|under)",
     re.IGNORECASE,
@@ -42,6 +51,16 @@ def has_gibberish_or_nonsense(doc: spacy.tokens.Doc) -> bool:
     return False
 
 
+def _apply_unit(value: float, unit: str | None) -> float:
+    if unit in ("k", "thousand", "thousands"):
+        return value * 1_000
+    if unit in ("m", "million", "millions"):
+        return value * 1_000_000
+    if unit in ("b", "billion", "billions"):
+        return value * 1_000_000_000
+    return value
+
+
 def parse_budget(text: str) -> float | None:
     text_clean = text.lower().replace(",", "")
 
@@ -61,9 +80,64 @@ def parse_budget(text: str) -> float | None:
     return float(match_raw[0]) if match_raw else None
 
 
+def parse_downpayment_budget(text: str) -> float | None:
+    """Matches '500k downpayment', '500k for downpayment', 'downpayment of 500k', etc."""
+    text_clean = text.lower().replace(",", "")
+
+    # number BEFORE the keyword: "500k downpayment", "10k dp"
+    match = re.search(
+        r"(\d+(?:\.\d+)?)\s*(k|thousand|thousands|m|million|millions|b|billion|billions)?\s*(?:downpayment|down payment|dp)\b",
+        text_clean,
+    )
+    if match:
+        return _apply_unit(float(match.group(1)), match.group(2))
+
+    # number AFTER the keyword: "downpayment of 500k", "downpayment is 500k"
+    match2 = re.search(
+        r"(?:downpayment|down payment|dp)(?:\s+of|\s+is)?\s+(\d+(?:\.\d+)?)\s*(k|thousand|thousands|m|million|millions|b|billion|billions)?",
+        text_clean,
+    )
+    if match2:
+        return _apply_unit(float(match2.group(1)), match2.group(2))
+
+    return None
+
+
+def parse_monthly_budget(text: str) -> float | None:
+    """Matches '4k per month', '4k monthly', '4k a month', etc."""
+    text_clean = text.lower().replace(",", "")
+
+    match = re.search(
+        r"(\d+(?:\.\d+)?)\s*(k|thousand|thousands|m|million|millions)?\s*(?:per month|a month|monthly|/month|each month)",
+        text_clean,
+    )
+    if match:
+        return _apply_unit(float(match.group(1)), match.group(2))
+
+    return None
+
+
 def parse_max_commute_time(text: str) -> int | None:
     match = MAX_COMMUTE_REGEX.search(text)
     return int(match.group(1)) if match else None
+
+
+def is_downpayment_mention(text: str) -> bool:
+    text_lower = text.lower()
+    return any(k in text_lower for k in DOWNPAYMENT_KEYWORDS)
+
+
+def is_valid_location_candidate(candidate: str) -> bool:
+    """Reject regex captures that are generic phrases rather than real place names,
+    e.g. 'in my work site location' should not be sent to the geocoder."""
+    words = candidate.lower().split()
+    if not words:
+        return False
+    if any(w in GENERIC_LOCATION_WORDS for w in words):
+        return False
+    if len(words) > 5:
+        return False
+    return True
 
 
 def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
@@ -81,8 +155,21 @@ def extract_preferences(text: str, doc: spacy.tokens.Doc) -> dict:
         if ent.label_ in ("GPE", "FAC", "LOC", "ORG")
     ]
 
+    downpayment_budget = parse_downpayment_budget(text)
+    monthly_budget = parse_monthly_budget(text)
+
+    # Only fall back to the generic single-number parser when neither a
+    # downpayment-specific nor monthly-specific amount was found, so we
+    # don't double-count the same number as both "budget" and "downpayment".
+    general_budget = None
+    if not downpayment_budget and not monthly_budget:
+        general_budget = parse_budget(text)
+
     return {
-        "budget": parse_budget(text),
+        "budget": general_budget,
+        "downpayment_budget": downpayment_budget,
+        "monthly_budget": monthly_budget,
+        "is_downpayment": is_downpayment_mention(text),
         "category": category,
         "locations": locations,
         "has_subdivision": "subdivision" in text_lower or "village" in text_lower,
