@@ -19,11 +19,8 @@ export default function App() {
   const [input, setInput] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [activeProperties, setActiveProperties] = useState<Property[]>([])
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    null
-  )
-  const [workplaceLocation, setWorkplaceLocation] =
-    useState<LocationPoint | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [workplaceLocation, setWorkplaceLocation] = useState<LocationPoint | null>(null)
   const [activeTab, setActiveTab] = useState<"chat" | "map">("chat")
   const [previewProperty, setPreviewProperty] = useState<Property | null>(null)
 
@@ -123,7 +120,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans">
       <PropertyDetailModal
         property={previewProperty}
         workplaceLocation={workplaceLocation}
@@ -132,10 +129,8 @@ export default function App() {
         onViewOnMap={handleViewOnMap}
       />
 
-      {/* Header sits outside the tab-conditional panels so it's always visible,
-          on both mobile and desktop. Header.tsx handles its own responsive
-          mobile/desktop markup internally. */}
-      <div className="shrink-0">
+      {/* Header: full width, always on top, mobile and desktop */}
+      <div className="w-full shrink-0">
         <Header
           workplaceLocation={workplaceLocation}
           activeTab={activeTab}
@@ -145,35 +140,38 @@ export default function App() {
         />
       </div>
 
-      <div
-        className={`flex h-full min-h-0 w-full flex-col overflow-hidden border-r bg-white shadow-sm md:w-[420px] lg:w-[480px] ${activeTab === "chat" ? "flex" : "hidden md:flex"}`}
-      >
-        <ChatMessageList
-          messages={messages}
-          selectedProperty={selectedProperty}
-          isLoading={isLoading}
-          chatEndRef={chatEndRef}
-          onSelectProperty={handleSelectProperty}
-        />
-        <ChatInput
-          input={input}
-          isLoading={isLoading}
-          onInputChange={setInput}
-          onSubmit={handleSendMessage}
-        />
-      </div>
-
-      <div
-        className={`h-full flex-1 flex-col p-2 sm:p-4 ${activeTab === "map" ? "flex" : "hidden md:flex"}`}
-      >
-        <div className="relative h-full w-full flex-1 rounded-xl border bg-white p-1 shadow-sm sm:rounded-2xl sm:p-2">
-          <PropertyMap
-            properties={activeProperties}
+      {/* Content row: chat + map, side by side on desktop, tab-switched on mobile */}
+      <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden md:flex-row">
+        <div
+          className={`flex h-full min-h-0 w-full flex-col overflow-hidden border-r bg-white shadow-sm md:w-[420px] lg:w-[480px] ${activeTab === "chat" ? "flex" : "hidden md:flex"}`}
+        >
+          <ChatMessageList
+            messages={messages}
             selectedProperty={selectedProperty}
-            workplaceLocation={workplaceLocation}
+            isLoading={isLoading}
+            chatEndRef={chatEndRef}
             onSelectProperty={handleSelectProperty}
-            onClearNearby={() => setSelectedProperty(null)}
           />
+          <ChatInput
+            input={input}
+            isLoading={isLoading}
+            onInputChange={setInput}
+            onSubmit={handleSendMessage}
+          />
+        </div>
+
+        <div
+          className={`h-full flex-1 flex-col p-2 sm:p-4 ${activeTab === "map" ? "flex" : "hidden md:flex"}`}
+        >
+          <div className="relative h-full w-full flex-1 rounded-xl border bg-white p-1 shadow-sm sm:rounded-2xl sm:p-2">
+            <PropertyMap
+              properties={activeProperties}
+              selectedProperty={selectedProperty}
+              workplaceLocation={workplaceLocation}
+              onSelectProperty={handleSelectProperty}
+              onClearNearby={() => setSelectedProperty(null)}
+            />
+          </div>
         </div>
       </div>
     </div>
