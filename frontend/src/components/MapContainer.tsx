@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { MapProps, NearbyEstablishmentsMap } from '../types';
 
@@ -52,6 +52,26 @@ const createCustomEmojiIcon = (emoji: string) => {
   });
 };
 
+// Custom workplace icon
+const WorkplaceIcon = L.divIcon({
+  className: 'custom-workplace-pin',
+  html: `<div style="
+    background-color: #0f172a;
+    color: white;
+    border: 2px solid #0284c7;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  ">🏢</div>`,
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
 const MapResizer: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
   const map = useMap();
 
@@ -79,6 +99,7 @@ const MapResizer: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => {
 export const PropertyMap: React.FC<MapProps> = ({
   properties,
   selectedProperty,
+  workplaceLocation,
   onSelectProperty,
   onClearNearby,
 }) => {
@@ -108,6 +129,15 @@ export const PropertyMap: React.FC<MapProps> = ({
       selectedNearby = raw;
     }
   }
+
+  // Point-to-point coordinates array between selected property and workplace
+  const polylineCoords: [number, number][] =
+    selectedProperty?.lat && selectedProperty?.lng && workplaceLocation?.lat && workplaceLocation?.lng
+      ? [
+          [selectedProperty.lat, selectedProperty.lng],
+          [workplaceLocation.lat, workplaceLocation.lng],
+        ]
+      : [];
 
   return (
     <div className="h-full w-full relative min-h-[300px]">
@@ -154,7 +184,35 @@ export const PropertyMap: React.FC<MapProps> = ({
           </Marker>
         ))}
 
-        {/* 2. Establishment Pins (visible only when selectedProperty exists) */}
+        {/* 2. Workplace Pin */}
+        {workplaceLocation && workplaceLocation.lat && workplaceLocation.lng && (
+          <Marker
+            position={[workplaceLocation.lat, workplaceLocation.lng]}
+            icon={WorkplaceIcon}
+          >
+            <Popup>
+              <div className="p-1">
+                <p className="text-xs font-bold text-slate-900">🏢 Workplace Location</p>
+                <p className="text-[11px] text-slate-600">{workplaceLocation.name}</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* 3. Point-to-Point Commute Line */}
+        {polylineCoords.length === 2 && (
+          <Polyline
+            positions={polylineCoords}
+            pathOptions={{
+              color: '#0284c7',
+              weight: 4,
+              dashArray: '8, 8',
+              opacity: 0.85,
+            }}
+          />
+        )}
+
+        {/* 4. Establishment Pins */}
         {selectedProperty?.lat &&
           selectedProperty?.lng &&
           Object.entries(selectedNearby).map(([category, items], catIdx) => {

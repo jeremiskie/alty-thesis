@@ -1,23 +1,28 @@
 import React from 'react';
 import { MapPin, Map as MapIcon } from 'lucide-react';
-import type { Property } from '../types';
+import type { Property, LocationPoint } from '../types';
 
 import { PropertyImageGallery } from '@/components/property-detail-modal/PropertyImageGaller';
 import { PropertyPricingGrid } from '@/components/property-detail-modal/PropertyPricingGrid';
 import { PropertyFeatures } from '@/components/property-detail-modal/PropertyFeatures';
 import { PropertyAmenities } from '@/components/property-detail-modal/PropertyAmenities';
 import { PropertyNearby } from '@/components/property-detail-modal/PropertyNearby';
+import { CommuteCard } from '@/components/CommuteCard';
 
 interface ModalProps {
   property: Property | null;
+  workplaceLocation?: LocationPoint | null;
   onClose: () => void;
   onViewOnMap?: (property: Property) => void;
+  onSetWorkplaceClick?: () => void;
 }
 
 export const PropertyDetailModal: React.FC<ModalProps> = ({
   property,
+  workplaceLocation = null,
   onClose,
   onViewOnMap,
+  onSetWorkplaceClick,
 }) => {
   if (!property) return null;
 
@@ -54,6 +59,13 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({
           </div>
 
           <PropertyPricingGrid property={property} />
+
+          {/* Commute & Route Convenience Score Container */}
+          <CommuteCard
+            property={property}
+            workplace={workplaceLocation}
+            onSetWorkplaceClick={onSetWorkplaceClick || (() => {})}
+          />
 
           <PropertyFeatures property={property} />
 

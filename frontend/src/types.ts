@@ -9,6 +9,18 @@ export interface NearbyEstablishmentsMap {
   [category: string]: NearbyEstablishmentItem[];
 }
 
+export interface CommuteInfo {
+  distance_km: number;
+  duration_mins: number;
+  convenience_score: 'Excellent' | 'Good' | 'Moderate' | 'Far';
+}
+
+export interface LocationPoint {
+  lat: number;
+  lng: number;
+  name: string;
+}
+
 export interface Property {
   listing_id: number | string;
   title: string;
@@ -18,11 +30,11 @@ export interface Property {
   monthly_rate?: number | null;
   num_bedrooms: number;
   num_bathrooms: number;
-  has_balcony?: boolean;     // Added
-  has_kitchen?: boolean;     // Added
-  has_backyard?: boolean;    // Added
-  has_garage?: boolean;      // Added
-  garage_spaces?: number;    // Added
+  has_balcony?: boolean;
+  has_kitchen?: boolean;
+  has_backyard?: boolean;
+  has_garage?: boolean;
+  garage_spaces?: number;
   layout_type?: string;
   village_name: string;
   lat: number | null;
@@ -31,19 +43,41 @@ export interface Property {
   amenity_list?: any;
   nearby_establishments?: any;
   details?: string;
+  commute_info?: CommuteInfo; // 👈 Populated by backend OSRM calculations
 }
 
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
-  status?: 'rejected' | 'clarification_needed' | 'success';
+  status?: 'rejected' | 'clarification_needed' | 'success' | 'casual_chat' | 'no_match' | 'recommendation_found';
   recommendations?: Property[];
+}
+
+export interface CommuteAnalysis {
+  distanceKm: number;
+  durationMins: number;
+  bestRouteName: string;
+  timeSavingsScore: 'Excellent' | 'Good' | 'Moderate' | 'Far';
 }
 
 export interface MapProps {
   properties: Property[];
   selectedProperty: Property | null;
+  workplaceLocation?: LocationPoint | null;
   onSelectProperty: (property: Property) => void;
   onClearNearby?: () => void;
+}
+
+export interface PropertyDetailModalProps {
+  property: Property | null;
+  workplace?: LocationPoint | null;
+  onSetWorkplaceClick: () => void;
+  onClose: () => void;
+}
+
+export interface CommuteCardProps {
+  property: Property;
+  workplace?: LocationPoint | null;
+  onSetWorkplaceClick: () => void;
 }
