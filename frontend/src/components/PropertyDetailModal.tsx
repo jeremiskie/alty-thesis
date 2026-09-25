@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Map as MapIcon } from 'lucide-react';
-import type { Property, LocationPoint } from '../types';
+import type { PropertyDetailModalProps, NearbyEstablishmentsMap } from '../types';
 
 import { PropertyImageGallery } from '@/components/property-detail-modal/PropertyImageGaller';
 import { PropertyPricingGrid } from '@/components/property-detail-modal/PropertyPricingGrid';
@@ -9,12 +9,8 @@ import { PropertyAmenities } from '@/components/property-detail-modal/PropertyAm
 import { PropertyNearby } from '@/components/property-detail-modal/PropertyNearby';
 import { CommuteCard } from '@/components/CommuteCard';
 
-interface ModalProps {
-  property: Property | null;
-  workplaceLocation?: LocationPoint | null;
-  onClose: () => void;
-  onViewOnMap?: (property: Property) => void;
-  onSetWorkplaceClick?: () => void;
+interface ModalProps extends PropertyDetailModalProps {
+  onViewOnMap?: (property: PropertyDetailModalProps['property']) => void;
 }
 
 export const PropertyDetailModal: React.FC<ModalProps> = ({
@@ -34,7 +30,10 @@ export const PropertyDetailModal: React.FC<ModalProps> = ({
   };
 
   const photos = Array.isArray(property.photos) ? property.photos : [];
-  const rawNearby = property.nearby_establishments || (property as any).nearby_establishment;
+
+  const rawNearby: NearbyEstablishmentsMap | undefined =
+    property.nearby_establishments ??
+    (property as { nearby_establishment?: NearbyEstablishmentsMap }).nearby_establishment;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in">

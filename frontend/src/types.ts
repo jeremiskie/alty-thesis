@@ -71,7 +71,7 @@ export interface MapProps {
 
 export interface PropertyDetailModalProps {
   property: Property | null;
-  workplace?: LocationPoint | null;
+  workplaceLocation?: LocationPoint | null;
   onSetWorkplaceClick: () => void;
   onClose: () => void;
 }
