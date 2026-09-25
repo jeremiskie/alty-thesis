@@ -62,6 +62,7 @@ async def chat_assistant(prompt: UserPrompt):
         prompt.workplace_name,
     )
     detected_workplace = None
+    geocode_failed = False
 
     # Detect location phrases
     workplace_match = WORKPLACE_REGEX.search(normalized_message)
@@ -70,8 +71,17 @@ async def chat_assistant(prompt: UserPrompt):
         if geo:
             work_lat, work_lng, work_name = geo["lat"], geo["lng"], geo["name"]
             detected_workplace = geo
+        else:
+            geocode_failed = True
 
     max_commute_mins = parse_max_commute_time(normalized_message)
+
+    if geocode_failed and not preferences["budget"] and not preferences["category"]:
+        return {
+            "status": "rejected",
+            "reply": "I couldn't locate that workplace address. Could you try a more specific name (e.g., 'BGC Taguig' or 'Makati CBD')?",
+            "recommendations": [],
+        }
 
     if (
         not preferences["budget"]

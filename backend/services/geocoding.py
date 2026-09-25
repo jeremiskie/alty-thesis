@@ -1,21 +1,39 @@
+import time
 import requests
+
+_geocode_cache: dict[str, dict] = {}
 
 
 def geocode_location(location_name: str) -> dict | None:
-    try:
-        url = "https://nominatim.openstreetmap.org/search"
-        headers = {"User-Agent": "AltyThesisApp/1.0"}
-        params = {"q": f"{location_name}, Philippines", "format": "json", "limit": 1}
-        res = requests.get(url, params=params, headers=headers, timeout=3)
-        if res.status_code == 200 and res.json():
-            data = res.json()[0]
-            return {
-                "name": location_name,
-                "lat": float(data["lat"]),
-                "lng": float(data["lon"]),
-            }
-    except Exception as e:
-        print(f"Geocoding error: {e}")
+    cache_key = location_name.strip().lower()
+    if cache_key in _geocode_cache:
+        return _geocode_cache[cache_key]
+
+    url = "https://nominatim.openstreetmap.org/search"
+    headers = {"User-Agent": "AltyThesisApp/1.0"}
+    params = {"q": f"{location_name}, Philippines", "format": "json", "limit": 1}
+
+    for attempt in range(2):  # try once, retry once on failure/rate-limit
+        try:
+            res = requests.get(url, params=params, headers=headers, timeout=5)
+            if res.status_code == 200:
+                results = res.json()
+                if results:
+                    data = results[0]
+                    result = {
+                        "name": location_name,
+                        "lat": float(data["lat"]),
+                        "lng": float(data["lon"]),
+                    }
+                    _geocode_cache[cache_key] = result
+                    return result
+            elif res.status_code == 429:
+                time.sleep(1.1)
+                continue
+        except Exception as e:
+            print(f"Geocoding error (attempt {attempt + 1}): {e}")
+            time.sleep(0.5)
+
     return None
 
 
