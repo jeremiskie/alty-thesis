@@ -7,6 +7,8 @@ import { ChatInput } from "./components/ChatInput"
 import type { ChatMessage, Property, LocationPoint } from "./types"
 
 const BACKEND_URL = "https://alty-thesis.onrender.com"
+// http://127.0.0.1:8000
+// https://alty-thesis.onrender.com
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([
