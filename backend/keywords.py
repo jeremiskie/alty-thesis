@@ -9,10 +9,13 @@ GIBBERISH_REGEX_1 = re.compile(r"[a-zA-Z]{4,}\d+|\d+[a-zA-Z]{4,}")
 GIBBERISH_REGEX_2 = re.compile(
     r"(asdf|qwerty|zxcv|ghjkl|1234|qwer|dfgh|hjkl|aaaa|zzzz|xxxx)"
 )
+
+# Updated WORKPLACE_REGEX to include "workplace is", "workplace is at", etc.
 WORKPLACE_REGEX = re.compile(
-    r"(?:work at|near|close to|office in|job at|workplace in)\s+([a-zA-Z0-9\s]+?)(?:,|\.|$|find|with|under)",
+    r"(?:work at|workplace is at|workplace is|my workplace is|office is at|office in|near|close to|job at|workplace in)\s+([a-zA-Z0-9\s]+?)(?:,|\.|$|find|with|under)",
     re.IGNORECASE,
 )
+
 MAX_COMMUTE_REGEX = re.compile(
     r"(?:under|less than|within|max|below)\s*(\d+)\s*(?:min|mins|minute|minutes)",
     re.IGNORECASE,
