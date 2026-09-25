@@ -116,6 +116,12 @@ export default function App() {
     setPreviewProperty(prop)
   }
 
+  const handleViewOnMap = (prop: Property | null) => {
+    if (!prop) return
+    setSelectedProperty(prop)
+    setActiveTab("map")
+  }
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 font-sans md:flex-row">
       <PropertyDetailModal
@@ -123,6 +129,7 @@ export default function App() {
         workplaceLocation={workplaceLocation}
         onSetWorkplaceClick={handleSetWorkplaceClick}
         onClose={() => setPreviewProperty(null)}
+        onViewOnMap={handleViewOnMap}
       />
 
       {/* Header sits outside the tab-conditional panels so it's always visible,

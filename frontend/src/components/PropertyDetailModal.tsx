@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Map as MapIcon } from 'lucide-react';
-import type { PropertyDetailModalProps, NearbyEstablishmentsMap } from '../types';
+import type { PropertyDetailModalProps, NearbyEstablishmentsMap, LocationPoint } from '../types';
 
 import { PropertyImageGallery } from '@/components/property-detail-modal/PropertyImageGaller';
 import { PropertyPricingGrid } from '@/components/property-detail-modal/PropertyPricingGrid';
@@ -10,6 +10,7 @@ import { PropertyNearby } from '@/components/property-detail-modal/PropertyNearb
 import { CommuteCard } from '@/components/CommuteCard';
 
 interface ModalProps extends PropertyDetailModalProps {
+  workplaceLocation?: LocationPoint | null;
   onViewOnMap?: (property: PropertyDetailModalProps['property']) => void;
 }
 
