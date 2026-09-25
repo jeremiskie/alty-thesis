@@ -81,3 +81,12 @@ export interface CommuteCardProps {
   workplace?: LocationPoint | null;
   onSetWorkplaceClick: () => void;
 }
+
+export interface HeaderProps {
+  workplaceLocation: LocationPoint | null
+  activeTab: "chat" | "map"
+  activePropertiesCount: number
+  onSetWorkplaceClick: () => void
+  onClearWorkplace: () => void
+  onTabChange: (tab: "chat" | "map") => void
+}

@@ -108,6 +108,10 @@ export default function App() {
       sendChatMessage(`My workplace is at ${placeName.trim()}`)
   }
 
+  const handleClearWorkplace = () => {
+    setWorkplaceLocation(null)
+  }
+
   const handleSelectProperty = (prop: Property) => {
     setSelectedProperty(prop)
     setPreviewProperty(prop)
@@ -136,6 +140,7 @@ export default function App() {
           activeTab={activeTab}
           activePropertiesCount={activeProperties.length}
           onSetWorkplaceClick={handleSetWorkplaceClick}
+          onClearWorkplace={handleClearWorkplace}
           onTabChange={setActiveTab}
         />
       </div>
