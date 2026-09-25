@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTabChange,
 }) => {
   return (
-    <>
+    <div>
       {/* Mobile/Tablet Header & Tab Navigation */}
       <div className="flex flex-col border-b bg-slate-900 text-white md:hidden">
         <header className="flex items-center justify-between p-3">
@@ -77,6 +77,6 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </button>
       </header>
-    </>
+    </div>
   )
 }

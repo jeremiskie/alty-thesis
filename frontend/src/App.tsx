@@ -125,16 +125,20 @@ export default function App() {
         onClose={() => setPreviewProperty(null)}
       />
 
+      {/* Header sits outside the tab-conditional panels so it's always visible,
+          on both mobile and desktop. Header.tsx handles its own responsive
+          mobile/desktop markup internally. */}
+      <Header
+        workplaceLocation={workplaceLocation}
+        activeTab={activeTab}
+        activePropertiesCount={activeProperties.length}
+        onSetWorkplaceClick={handleSetWorkplaceClick}
+        onTabChange={setActiveTab}
+      />
+
       <div
         className={`flex h-full w-full flex-col border-r bg-white shadow-sm md:w-[420px] lg:w-[480px] ${activeTab === "chat" ? "flex" : "hidden md:flex"}`}
       >
-        <Header
-          workplaceLocation={workplaceLocation}
-          activeTab={activeTab}
-          activePropertiesCount={activeProperties.length}
-          onSetWorkplaceClick={handleSetWorkplaceClick}
-          onTabChange={setActiveTab}
-        />
         <ChatMessageList
           messages={messages}
           selectedProperty={selectedProperty}
